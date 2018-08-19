@@ -94,3 +94,18 @@ instance (MonadBaseControl f, Monoid a) => MonadBaseControl (AccumT a f) where
     type StM (AccumT a f) b = ComposeSt (AccumT a) f b
     liftBaseWith = defaultLiftBaseWith
     restoreM = defaultRestoreM
+
+control :: MonadBaseControl m => (RunInBase m -> Base m (StM m a)) -> m a
+control f = liftBaseWith f >>= restoreM
+
+liftBaseOp :: MonadBaseControl m => ((a -> Base m (StM m b)) -> Base m (StM m c)) -> (a -> m b) -> m c
+liftBaseOp f = \ g -> control (\ r -> f (r . g))
+
+liftBaseOp_ :: MonadBaseControl m => (Base m (StM m a) -> Base m (StM m b)) -> m a -> m b
+liftBaseOp_ f = liftBaseOp (f . ($ ())) . pure
+
+liftBaseDiscard :: MonadBaseControl m => (Base m () -> Base m a) -> m () -> m a
+liftBaseDiscard f = \ x -> liftBaseWith (\ r -> f (() <$ r x))
+
+liftBaseOpDiscard :: MonadBaseControl m => ((a -> Base m ()) -> Base m b) -> (a -> m ()) -> m b
+liftBaseOpDiscard f = \ g -> liftBaseWith (\ r -> f ((() <$) . r . g))
